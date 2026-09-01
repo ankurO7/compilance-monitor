@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ankurO7/compliance-monitor/internal/models"
-	"github.com/ankurO7/compliance-monitor/internal/store"
-	"github.com/ankurO7/compliance-monitor/internal/worker"
+	"github.com/ankurO7/compilance-monitor/internal/models"
+	"github.com/ankurO7/compilance-monitor/internal/store"
+	"github.com/ankurO7/compilance-monitor/internal/worker"
 )
 
 type API struct {
@@ -61,7 +61,7 @@ func (a *API) ingestTransaction(w http.ResponseWriter, r *http.Request) {
 	tx := models.Transaction{
 		ID:           a.IDFn(),
 		UserID:       req.UserID,
-		Amount:       req.Amount,
+		Amount:       int64(req.Amount),
 		Currency:     req.Currency,
 		Counterparty: req.Counterparty,
 		CreatedAt:    time.Now().UTC(),
@@ -133,7 +133,7 @@ func (a *API) seedDemoData(w http.ResponseWriter, r *http.Request) {
 		tx := models.Transaction{
 			ID:           a.IDFn(),
 			UserID:       userID,
-			Amount:       amount,
+			Amount:       int64(amount),
 			Currency:     "USD",
 			Counterparty: counterparty,
 			CreatedAt:    at,

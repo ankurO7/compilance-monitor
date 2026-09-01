@@ -11,52 +11,65 @@ import (
 )
 
 type Pool struct {
-	queue chan models.Transaction
+	queues     []chan models.Transaction
 	numWorkers int
-	st			store.Store
-	rules		[]rules.Rule
-	idFn		func() string
+	st         store.Store
+	rules      []rules.Rule
+	idFn       func() string
 }
 
 func NewPool(numWorkers int, queueSize int, st store.Store, ruleSet []rules.Rule, idFn func() string) *Pool {
-	return &Pool{
-		queue: make(chan models.Transaction, queueSize),
-		numWorkers: numWorkers,
-		st: 		st,
-		rules:		ruleSet,
-		idFn: 		idFn,
+	queues := make([]chan models.Transaction, numWorkers)
+	for i := range queues {
+		queues[i] = make(chan models.Transaction, queueSize)
 	}
+	return &Pool{queues: queues, numWorkers: numWorkers, st: st, rules: ruleSet, idFn: idFn}
 }
 
-// Submit enqueues a transaction. Returns false if the queue is full
-// (backpressure signal to the HTTP handler).
+func hashUser(userID string) int {
+	h := 0
+	for _, c := range userID {
+		h = h*31 + int(c)
+	}
+	if h < 0 {
+		h = -h
+	}
+	return h
+}
 
 func (p *Pool) Submit(tx models.Transaction) bool {
+	idx := hashUser(tx.UserID) % p.numWorkers
 	select {
-	case p.queue <- tx :
+	case p.queues[idx] <- tx:
 		return true
 	default:
 		return false
 	}
 }
 
-// Start launches the worker goroutines. Non-blocking - call once at startup.
-
 func (p *Pool) Start(stopCh <-chan struct{}) {
 	for i := 0; i < p.numWorkers; i++ {
-		go p.runWorker(stopCh)
+		go p.runWorker(i, stopCh)
 	}
 }
 
-func (p *Pool) runWorker(stopCh <-chan struct{}){
+func (p *Pool) runWorker(idx int, stopCh <-chan struct{}) {
 	for {
 		select {
 		case <-stopCh:
 			return
-		case tx := <-p.queue:
+		case tx := <-p.queues[idx]:
 			p.evaluate(tx)
 		}
 	}
+}
+
+func (p *Pool) QueueDepth() int {
+	total := 0
+	for _, q := range p.queues {
+		total += len(q)
+	}
+	return total
 }
 
 func (p *Pool) evaluate(tx models.Transaction) {
@@ -113,8 +126,4 @@ func (p *Pool) evaluate(tx models.Transaction) {
 		}
 	}
 
-}
-
-func (p *Pool) QueueDepth() int {
-	return len(p.queue)
 }

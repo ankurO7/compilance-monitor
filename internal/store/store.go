@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ankurO7/compliance-monitor/internal/models"
+	"github.com/ankurO7/compilance-monitor/internal/models"
 )
 
 type Store interface {
